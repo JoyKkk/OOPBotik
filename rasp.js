@@ -1,5 +1,6 @@
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
+const express = require('express');
 require('dotenv').config();
 
 const token = process.env.BOT_TOKEN;
@@ -171,23 +172,15 @@ async function sendDay(chatId, dayIndex, weekType, showMenu = true) {
     const sched = await fetchSchedule(state.group);
     const day = sched.days && sched.days[String(dayIndex)];
     if (!day || !day.lessons || day.lessons.length === 0) {
-      if (showMenu) {
-        await bot.sendMessage(chatId, `${DAYS[dayIndex]}: пар нет`);
-        await sendMenu(chatId);
-      } else {
-        await bot.sendMessage(chatId, `${DAYS[dayIndex]}: пар нет`);
-      }
+      await bot.sendMessage(chatId, `${DAYS[dayIndex]}: пар нет`);
+      if (showMenu) await sendMenu(chatId);
       return;
     }
 
     const lessons = filterByWeek(day.lessons, weekType);
     if (!lessons.length) {
-      if (showMenu) {
-        await bot.sendMessage(chatId, `${DAYS[dayIndex]}: пар нет (для выбранной недели)`);
-        await sendMenu(chatId);
-      } else {
-        await bot.sendMessage(chatId, `${DAYS[dayIndex]}: пар нет (для выбранной недели)`);
-      }
+      await bot.sendMessage(chatId, `${DAYS[dayIndex]}: пар нет (для выбранной недели)`);
+      if (showMenu) await sendMenu(chatId);
       return;
     }
 
@@ -258,19 +251,10 @@ async function sendNearestLesson(chatId) {
       if (!lessons.length) continue;
 
       for (const l of lessons) {
-        // если это сегодня (d===0) — ищем пару, начинающуюся позже текущего времени
-        if (d === 0) {
-          if (timeToMin(l.start_time) > nowMin) {
-            const text = `📍 Ближайшая пара\n${DAYS[dayIndex]} (${weekType === 1 ? 'нечётная' : 'чётная'} неделя)\n\n${formatLesson(l)}`;
-            await bot.sendMessage(chatId, text);
-            return await sendMenu(chatId);
-          }
-        } else {
-          // ближайшая в будущем
-          const text = `📍 Ближайшая пара\n${DAYS[dayIndex]} (${weekType === 1 ? 'нечётная' : 'чётная'} неделя)\n\n${formatLesson(l)}`;
-          await bot.sendMessage(chatId, text);
-          return await sendMenu(chatId);
-        }
+        if (d === 0 && timeToMin(l.start_time) <= nowMin) continue;
+        const text = `📍 Ближайшая пара\n${DAYS[dayIndex]} (${weekType === 1 ? 'нечётная' : 'чётная'} неделя)\n\n${formatLesson(l)}`;
+        await bot.sendMessage(chatId, text);
+        return await sendMenu(chatId);
       }
     }
 
@@ -352,8 +336,7 @@ bot.on('message', async (msg) => {
 
     // сегодня / завтра
     if (text === '📅 Сегодня') {
-      const today = new Date();
-      return sendDay(chatId, jsDayToIndex(today.getDay()), getWeekTypeForDate(today));
+      return sendDay(chatId, jsDayToIndex(new Date().getDay()), getWeekTypeForDate(new Date()));
     }
     if (text === '📅 Завтра') {
       const t = new Date(); t.setDate(t.getDate() + 1);
@@ -362,9 +345,7 @@ bot.on('message', async (msg) => {
 
     // пользователь выбрал конкретный день (reply-кнопка)
     if (DAYS.includes(text)) {
-      // сохраняем выбранный день (0..6)
-      const idx = DAYS.indexOf(text); // 0..6
-      userState[chatId].selectedDay = idx;
+      userState[chatId].selectedDay = DAYS.indexOf(text);
       return bot.sendMessage(chatId, `Выбран ${text}. Теперь выбери тип недели:`, weekKeyboard);
     }
 
@@ -375,12 +356,10 @@ bot.on('message', async (msg) => {
 
       if (typeof state.selectedDay === 'number') {
         // выбран конкретный день — выводим только его
-        await sendDay(chatId, state.selectedDay, weekType, true);
-        return;
+        return sendDay(chatId, state.selectedDay, weekType, true);
       } else {
         // не выбран день — выводим всю неделю (Mon..Sun)
-        await sendWeek(chatId, weekType);
-        return;
+        return sendWeek(chatId, weekType);
       }
     }
 
@@ -398,6 +377,11 @@ bot.on('message', async (msg) => {
   }
 });
 
-/* --------------------- START --------------------- */
+/* --------------------- HTTP SERVER ДЛЯ RENDER --------------------- */
 
-console.log('✅ Бот запущен');
+const app = express();
+const PORT = process.env.PORT || 3000;
+app.get('/', (req,res) => res.send('Bot is running!'));
+app.listen(PORT, () => console.log(`HTTP server listening on port ${PORT}`));
+
+console.log('✅ Бот запущен (polling + фиктивный HTTP-сервер для Render)');
