@@ -314,7 +314,7 @@ async function sendNearestLesson(chatId) {
             const totalDuration = endTotalMinutes - startTotalMinutes;
             const minutesLeft = endTotalMinutes - nowTotalMinutes;
             
-            text = `📍 Текущая пара (сейчас)\n${formatDate(targetDate)}, (${DAYS[dayIndex]}\n${startTime}–${endTime}  ${lesson.subjectType ? lesson.subjectType : ''}: ${lesson.name || lesson.subject || 'Без названия'}\n${lesson.teacher || 'Не указан'}\n${lesson.room || 'Не указана'}`;
+            text = `📍 Текущая пара (сейчас)\n${formatDate(targetDate)}, ${DAYS[dayIndex]}\n${startTime}–${endTime}  ${lesson.subjectType ? lesson.subjectType : ''}: ${lesson.name || lesson.subject || 'Без названия'}\n${lesson.teacher || 'Не указан'}\n${lesson.room || 'Не указана'}`;
             await bot.sendMessage(chatId, text);
             return await sendMenu(chatId);
           }
