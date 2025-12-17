@@ -236,7 +236,7 @@ async function sendNearestLesson(chatId) {
     const now = new Date();
     const nowMin = timeToMin(now.toTimeString().slice(0,5));
 
-    // ищем ближайшую пару в пределах 14 дней (чтобы наверняка найти)
+    // ищем ближайшую пару в пределах 14 дней
     for (let d = 0; d < 14; d++) {
       const date = new Date();
       date.setDate(now.getDate() + d);
@@ -251,10 +251,32 @@ async function sendNearestLesson(chatId) {
       if (!lessons.length) continue;
 
       for (const l of lessons) {
-        if (d === 0 && timeToMin(l.start_time) <= nowMin) continue;
-        const text = `📍 Ближайшая пара\n${DAYS[dayIndex]} (${weekType === 1 ? 'нечётная' : 'чётная'} неделя)\n\n${formatLesson(l)}`;
-        await bot.sendMessage(chatId, text);
-        return await sendMenu(chatId);
+        const startMin = timeToMin(l.start_time);
+        const endMin = timeToMin(l.end_time);
+        
+        // Если пара уже закончилась, пропускаем
+        if (d === 0 && endMin <= nowMin) continue;
+        
+        // Если пара уже началась, но ещё не закончилась - это ближайшая
+        if (d === 0 && startMin <= nowMin && nowMin < endMin) {
+          const text = `📍 Текущая пара (идёт сейчас)\n${DAYS[dayIndex]} (${weekType === 1 ? 'нечётная' : 'чётная'} неделя)\n\n${formatLesson(l)}`;
+          await bot.sendMessage(chatId, text);
+          return await sendMenu(chatId);
+        }
+        
+        // Если пара начнется позже
+        if (d === 0 && startMin > nowMin) {
+          const text = `📍 Ближайшая пара\n${DAYS[dayIndex]} (${weekType === 1 ? 'нечётная' : 'чётная'} неделя)\n\n${formatLesson(l)}`;
+          await bot.sendMessage(chatId, text);
+          return await sendMenu(chatId);
+        }
+        
+        // Если это не сегодня, то первая пара этого дня - ближайшая
+        if (d > 0) {
+          const text = `📍 Ближайшая пара\n${DAYS[dayIndex]} (${weekType === 1 ? 'нечётная' : 'чётная'} неделя)\n\n${formatLesson(l)}`;
+          await bot.sendMessage(chatId, text);
+          return await sendMenu(chatId);
+        }
       }
     }
 
@@ -266,7 +288,6 @@ async function sendNearestLesson(chatId) {
     await sendMenu(chatId);
   }
 }
-
 /* --------------------- ОБРАБОТЧИКИ --------------------- */
 
 // /start - просим ввести группу
