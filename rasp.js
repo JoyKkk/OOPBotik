@@ -441,7 +441,7 @@ bot.on('message', async (msg) => {
     }
 
     // "Назад" кнопка
-    if (text === '⬅ Назад') {
+    if (text === '<< Назад') {
       return sendMenu(chatId);
     }
 
@@ -454,11 +454,9 @@ bot.on('message', async (msg) => {
   }
 });
 
-/* --------------------- HTTP SERVER ДЛЯ RENDER --------------------- */
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.get('/', (req,res) => res.send('Bot is running!'));
 app.listen(PORT, () => console.log(`HTTP server listening on port ${PORT}`));
 
-console.log('✅ Бот запущен (polling + фиктивный HTTP-сервер для Render)');
+console.log('Успешный запуск бота!!!');
