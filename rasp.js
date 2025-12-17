@@ -234,60 +234,100 @@ async function sendNearestLesson(chatId) {
   try {
     const sched = await fetchSchedule(state.group);
     const now = new Date();
-    const nowMin = timeToMin(now.toTimeString().slice(0,5));
+    const nowHours = now.getHours();
+    const nowMinutes = now.getMinutes();
+    const nowTotalMinutes = nowHours * 60 + nowMinutes;
 
-    // ищем ближайшую пару в пределах 14 дней
-    for (let d = 0; d < 14; d++) {
-      const date = new Date();
-      date.setDate(now.getDate() + d);
-      const dayIndex = jsDayToIndex(date.getDay());
-      const weekType = getWeekTypeForDate(date);
+    // Ищем ближайшую пару в течение 7 дней
+    for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+      const targetDate = new Date(now);
+      targetDate.setDate(now.getDate() + dayOffset);
+      targetDate.setHours(0, 0, 0, 0);
+      
+      const dayIndex = jsDayToIndex(targetDate.getDay());
+      const weekType = getWeekTypeForDate(targetDate);
 
       const day = sched.days && sched.days[String(dayIndex)];
       if (!day || !day.lessons || day.lessons.length === 0) continue;
 
       const lessons = filterByWeek(day.lessons, weekType)
-        .sort((a,b) => timeToMin(a.start_time) - timeToMin(b.start_time));
+        .sort((a, b) => timeToMin(a.start_time) - timeToMin(b.start_time));
+      
       if (!lessons.length) continue;
 
-      for (const l of lessons) {
-        const startMin = timeToMin(l.start_time);
-        const endMin = timeToMin(l.end_time);
+      for (const lesson of lessons) {
+        const startTime = lesson.start_time || "00:00";
+        const endTime = lesson.end_time || "23:59";
         
-        // Если пара уже закончилась, пропускаем
-        if (d === 0 && endMin <= nowMin) continue;
+        const [startHour, startMinute] = startTime.split(':').map(Number);
+        const [endHour, endMinute] = endTime.split(':').map(Number);
         
-        // Если пара уже началась, но ещё не закончилась - это ближайшая
-        if (d === 0 && startMin <= nowMin && nowMin < endMin) {
-          const text = `📍 Текущая пара (идёт сейчас)\n${DAYS[dayIndex]} (${weekType === 1 ? 'нечётная' : 'чётная'} неделя)\n\n${formatLesson(l)}`;
-          await bot.sendMessage(chatId, text);
-          return await sendMenu(chatId);
-        }
+        const startTotalMinutes = startHour * 60 + startMinute;
+        const endTotalMinutes = endHour * 60 + endMinute;
         
-        // Если пара начнется позже
-        if (d === 0 && startMin > nowMin) {
-          const text = `📍 Ближайшая пара\n${DAYS[dayIndex]} (${weekType === 1 ? 'нечётная' : 'чётная'} неделя)\n\n${formatLesson(l)}`;
-          await bot.sendMessage(chatId, text);
-          return await sendMenu(chatId);
-        }
-        
-        // Если это не сегодня, то первая пара этого дня - ближайшая
-        if (d > 0) {
-          const text = `📍 Ближайшая пара\n${DAYS[dayIndex]} (${weekType === 1 ? 'нечётная' : 'чётная'} неделя)\n\n${formatLesson(l)}`;
+        // Если это сегодня
+        if (dayOffset === 0) {
+          // Пара уже закончилась - пропускаем
+          if (endTotalMinutes < nowTotalMinutes) {
+            continue;
+          }
+          
+          // Пара идет прямо сейчас
+          if (startTotalMinutes <= nowTotalMinutes && nowTotalMinutes < endTotalMinutes) {
+            const text = `📍 Текущая пара\n${formatDate(targetDate)}, ${DAYS[dayIndex]}\n${startTime}-${endTime}\n${lesson.name || lesson.subject || 'Без названия'}\n${lesson.teacher || 'Не указан'}\n${lesson.room || 'Не указана'}`;
+            await bot.sendMessage(chatId, text);
+            return await sendMenu(chatId);
+          }
+          
+          // Пара будет позже сегодня
+          if (startTotalMinutes > nowTotalMinutes) {
+            const minutesLeft = startTotalMinutes - nowTotalMinutes;
+            const text = `📍 Ближайшая пара\nСегодня, ${DAYS[dayIndex]}\n${startTime}-${endTime} (через ${minutesLeft} мин.)\n${lesson.name || lesson.subject || 'Без названия'}\n${lesson.teacher || 'Не указан'}\n${lesson.room || 'Не указана'}`;
+            await bot.sendMessage(chatId, text);
+            return await sendMenu(chatId);
+          }
+        } else {
+          // Если это будущий день, берем первую пару
+          const text = `📍 Ближайшая пара \n${formatFutureDate(targetDate)}, ${DAYS[dayIndex]}\n${startTime}-${endTime}\n${lesson.name || lesson.subject || 'Без названия'}\n${lesson.teacher || 'Не указан'}\n ${lesson.room || 'Не указана'}`;
           await bot.sendMessage(chatId, text);
           return await sendMenu(chatId);
         }
       }
     }
 
-    await bot.sendMessage(chatId, 'Пар не найдено в ближайшие 2 недели.');
+    await bot.sendMessage(chatId, 'Пар не найдено в ближайшую неделю');
     await sendMenu(chatId);
-  } catch (e) {
-    console.error('sendNearestLesson error', e);
-    await bot.sendMessage(chatId, 'Ошибка при поиске ближайшей пары.');
+  } catch (error) {
+    console.error('Ошибка поиска ближайшей пары:', error);
+    await bot.sendMessage(chatId, 'Ошибка при поиске ближайшей пары. Попробуйте позже.');
     await sendMenu(chatId);
   }
 }
+
+// Добавьте эти вспомогательные функции в начало файла (после других функций)
+function formatDate(date) {
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  return `${day}.${month}`;
+}
+
+function formatFutureDate(date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  
+  const diffTime = target - today;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 1) return 'Завтра';
+  if (diffDays === 2) return 'Послезавтра';
+  
+  const day = target.getDate().toString().padStart(2, '0');
+  const month = (target.getMonth() + 1).toString().padStart(2, '0');
+  return `${day}.${month}`;
+}
+
 /* --------------------- ОБРАБОТЧИКИ --------------------- */
 
 // /start - просим ввести группу
