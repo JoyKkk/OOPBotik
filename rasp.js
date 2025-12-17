@@ -58,7 +58,6 @@ function isLikelyGroupFormat(s) {
   return /^\d{4}$/.test(s);
 }
 
-
 function jsDayToIndex(jsDay) {
   // JS: 0=Sunday -> want 0=Monday -> (day+6)%7
   return (jsDay + 6) % 7;
@@ -69,6 +68,43 @@ function timeToMin(t) {
   const parts = t.split(':').map(x => parseInt(x,10));
   if (parts.length < 2 || isNaN(parts[0])) return 0;
   return parts[0]*60 + (isNaN(parts[1])?0:parts[1]);
+}
+
+// Получение московского времени (UTC+3)
+function getMoscowTime() {
+  const now = new Date();
+  // Москва UTC+3 (3 часа * 60 минут * 60 секунд * 1000 миллисекунд)
+  return new Date(now.getTime() + 3 * 60 * 60 * 1000);
+}
+
+// Форматирование времени
+function formatTime(date) {
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function formatDate(date) {
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  return `${day}.${month}`;
+}
+
+function formatFutureDate(date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  
+  const diffTime = target - today;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 1) return 'Завтра';
+  if (diffDays === 2) return 'Послезавтра';
+  
+  const day = target.getDate().toString().padStart(2, '0');
+  const month = (target.getMonth() + 1).toString().padStart(2, '0');
+  return `${day}.${month}`;
 }
 
 // вычисление чётности недели: 1 = нечётная, 2 = чётная
@@ -233,15 +269,15 @@ async function sendNearestLesson(chatId) {
 
   try {
     const sched = await fetchSchedule(state.group);
-    const now = new Date();
-    const nowHours = now.getHours();
-    const nowMinutes = now.getMinutes();
+    const nowMoscow = getMoscowTime();
+    const nowHours = nowMoscow.getHours();
+    const nowMinutes = nowMoscow.getMinutes();
     const nowTotalMinutes = nowHours * 60 + nowMinutes;
 
     // Ищем ближайшую пару в течение 7 дней
     for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-      const targetDate = new Date(now);
-      targetDate.setDate(now.getDate() + dayOffset);
+      const targetDate = new Date(nowMoscow);
+      targetDate.setDate(nowMoscow.getDate() + dayOffset);
       targetDate.setHours(0, 0, 0, 0);
       
       const dayIndex = jsDayToIndex(targetDate.getDay());
@@ -274,7 +310,11 @@ async function sendNearestLesson(chatId) {
           
           // Пара идет прямо сейчас
           if (startTotalMinutes <= nowTotalMinutes && nowTotalMinutes < endTotalMinutes) {
-            const text = `📍 Текущая пара\n${formatDate(targetDate)}, ${DAYS[dayIndex]}\n${startTime}-${endTime}\n${lesson.name || lesson.subject || 'Без названия'}\n${lesson.teacher || 'Не указан'}\n${lesson.room || 'Не указана'}`;
+            const minutesPassed = nowTotalMinutes - startTotalMinutes;
+            const totalDuration = endTotalMinutes - startTotalMinutes;
+            const minutesLeft = endTotalMinutes - nowTotalMinutes;
+            
+            text = `📍 Текущая пара (сейчас)\n${formatDate(targetDate)}, ${DAYS[dayIndex]}\n${startTime}-${endTime}\n${lesson.name || lesson.subject || 'Без названия'}\n${lesson.teacher || 'Не указан'}\n${lesson.room || 'Не указана'}`;
             await bot.sendMessage(chatId, text);
             return await sendMenu(chatId);
           }
@@ -302,30 +342,6 @@ async function sendNearestLesson(chatId) {
     await bot.sendMessage(chatId, 'Ошибка при поиске ближайшей пары. Попробуйте позже.');
     await sendMenu(chatId);
   }
-}
-
-// Добавьте эти вспомогательные функции в начало файла (после других функций)
-function formatDate(date) {
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  return `${day}.${month}`;
-}
-
-function formatFutureDate(date) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(date);
-  target.setHours(0, 0, 0, 0);
-  
-  const diffTime = target - today;
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  if (diffDays === 1) return 'Завтра';
-  if (diffDays === 2) return 'Послезавтра';
-  
-  const day = target.getDate().toString().padStart(2, '0');
-  const month = (target.getMonth() + 1).toString().padStart(2, '0');
-  return `${day}.${month}`;
 }
 
 /* --------------------- ОБРАБОТЧИКИ --------------------- */
