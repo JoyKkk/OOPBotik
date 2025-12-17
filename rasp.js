@@ -314,7 +314,7 @@ async function sendNearestLesson(chatId) {
             const totalDuration = endTotalMinutes - startTotalMinutes;
             const minutesLeft = endTotalMinutes - nowTotalMinutes;
             
-            text = `📍 Текущая пара (сейчас)\n${formatDate(targetDate)}, ${DAYS[dayIndex]}\n${startTime}–${endTime}\n${lesson.subjectType ? ${lesson.subjectType} : ''}${lesson.name || lesson.subject || 'Без названия'}\n${lesson.teacher || 'Не указан'}\n${lesson.room || 'Не указана'}`;
+            text = `📍 Текущая пара (сейчас)\n${formatDate(targetDate)}, ${DAYS[dayIndex]}\n${startTime}–${endTime}\n${lesson.subjectType ? lesson.subjectType : ''}${lesson.name || lesson.subject || 'Без названия'}\n${lesson.teacher || 'Не указан'}\n${lesson.room || 'Не указана'}`;
             await bot.sendMessage(chatId, text);
             return await sendMenu(chatId);
           }
@@ -322,13 +322,13 @@ async function sendNearestLesson(chatId) {
           // Пара будет позже сегодня
           if (startTotalMinutes > nowTotalMinutes) {
             const minutesLeft = startTotalMinutes - nowTotalMinutes;
-            const text = `📍 Ближайшая пара\nСегодня, ${DAYS[dayIndex]}\n${startTime}–${endTime} (через ${minutesLeft} мин.)\n${lesson.subjectType ? ${lesson.subjectType} : ''}${lesson.name || lesson.subject || 'Без названия'}\n${lesson.teacher || 'Не указан'}\n${lesson.room || 'Не указана'}`;
+            const text = `📍 Ближайшая пара\nСегодня, ${DAYS[dayIndex]}\n${startTime}–${endTime} (через ${minutesLeft} мин.)\n${lesson.subjectType ? lesson.subjectType : ''}${lesson.name || lesson.subject || 'Без названия'}\n${lesson.teacher || 'Не указан'}\n${lesson.room || 'Не указана'}`;
             await bot.sendMessage(chatId, text);
             return await sendMenu(chatId);
           }
         } else {
           // Если это будущий день, берем первую пару
-          const text = `📍 Ближайшая пара \n${formatFutureDate(targetDate)}, ${DAYS[dayIndex]}\n${startTime}–${endTime}\n${lesson.subjectType ? ${lesson.subjectType} : ''}${lesson.name || lesson.subject || 'Без названия'}\n${lesson.teacher || 'Не указан'}\n ${lesson.room || 'Не указана'}`;
+          const text = `📍 Ближайшая пара \n${formatFutureDate(targetDate)}, ${DAYS[dayIndex]}\n${startTime}–${endTime}\n${lesson.subjectType ? lesson.subjectType : ''}${lesson.name || lesson.subject || 'Без названия'}\n${lesson.teacher || 'Не указан'}\n ${lesson.room || 'Не указана'}`;
           await bot.sendMessage(chatId, text);
           return await sendMenu(chatId);
         }
