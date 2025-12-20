@@ -22,8 +22,8 @@ const mainKeyboard = {
     keyboard: [
       ['📍 Ближайшая пара'],
       ['📅 Сегодня', '📅 Завтра'],
-      ['📘 Вся неделя'],
-      ['📆 День недели'],
+      ['📘 Вся неделя', '📆 День недели'],
+      ['📝 Экзамены'],
       ['🔄 Сменить группу']
     ]
   }
@@ -153,6 +153,24 @@ async function fetchSchedule(group) {
   }
 }
 
+async function fetchExams(group) {
+  try {
+    const res = await axios.get(`${API_BASE}/exam`, {
+      params: { groupNumber: group },
+      timeout: 10000
+    });
+
+    if (!res.data || res.data.length === 0) {
+      return [];
+    }
+
+    return res.data;
+  } catch (err) {
+    console.error('fetchExams error', err.message);
+    return [];
+  }
+}
+
 async function verifyGroupExists(group) {
   // Проверяет существование группы, по сути вызывает fetchSchedule и ловит ошибку
   try {
@@ -189,6 +207,19 @@ function formatLesson(l) {
   return `${time}  ${type}${name}\n${teacher}\n${room}`;
 }
 
+function formatExam(e) {
+  const date = e.date || '—';
+  const time = e.time || '—';
+  const subject = e.subject || '—';
+  const teacher = e.teacher || '—';
+  const room = e.room || '—';
+
+  return `📌 ${subject}
+– ${date}, ${time}
+– ${teacher}
+– ${room}`;
+}
+
 /* --------------------- ОТПРАВКА/ЛОГИКА --------------------- */
 
 async function sendMenu(chatId) {
@@ -208,14 +239,14 @@ async function sendDay(chatId, dayIndex, weekType, showMenu = true) {
     const sched = await fetchSchedule(state.group);
     const day = sched.days && sched.days[String(dayIndex)];
     if (!day || !day.lessons || day.lessons.length === 0) {
-      await bot.sendMessage(chatId, `${DAYS[dayIndex]}: пар нет`);
+      await bot.sendMessage(chatId, `— ${DAYS[dayIndex]}: пар нет`);
       if (showMenu) await sendMenu(chatId);
       return;
     }
 
     const lessons = filterByWeek(day.lessons, weekType);
     if (!lessons.length) {
-      await bot.sendMessage(chatId, `${DAYS[dayIndex]}: пар нет (для выбранной недели)`);
+      await bot.sendMessage(chatId, `— ${DAYS[dayIndex]}: пар нет (для выбранной недели)`);
       if (showMenu) await sendMenu(chatId);
       return;
     }
@@ -344,6 +375,27 @@ async function sendNearestLesson(chatId) {
   }
 }
 
+async function sendExams(chatId) {
+  const state = userState[chatId];
+  if (!state || !state.group) {
+    await bot.sendMessage(chatId, 'Сначала укажи номер группы');
+    return sendMenu(chatId);
+  }
+
+  const exams = await fetchExams(state.group);
+
+  if (!exams.length) {
+    await bot.sendMessage(chatId, 'Расписание экзаменов не найдено.');
+    return sendMenu(chatId);
+  }
+
+  const text = '📝 Расписание экзаменов:\n\n' +
+    exams.map(formatExam).join('\n\n');
+
+  await bot.sendMessage(chatId, text);
+  await sendMenu(chatId);
+}
+
 /* --------------------- ОБРАБОТЧИКИ --------------------- */
 
 // /start - просим ввести группу
@@ -404,6 +456,10 @@ bot.on('message', async (msg) => {
       // помечаем, что запрос на "всю неделю" (если нужно - можно хранить флаг)
       userState[chatId].selectedDay = undefined;
       return bot.sendMessage(chatId, 'Выбери тип недели для расписания на всю неделю:', weekKeyboard);
+    }
+
+    if (text === '📝 Экзамены') {
+      return sendExams(chatId);
     }
 
     // ближайшая пара
