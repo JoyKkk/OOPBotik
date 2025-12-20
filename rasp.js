@@ -159,14 +159,15 @@ async function fetchExams(group) {
       params: { groupNumber: group },
       timeout: 10000
     });
-
-    if (!Array.isArray(res.data) || res.data.length === 0) {
-      return [];
-    }
-
-    return res.data;
+    if (!res.data || Object.keys(res.data).length === 0) return [];
+    // API возвращает объект, где ключ - номер группы, значение - массив экзаменов
+    if (Array.isArray(res.data[group])) return res.data[group];
+    // иначе, если вернулся объект с первым ключом
+    const firstKey = Object.keys(res.data)[0];
+    if (Array.isArray(res.data[firstKey])) return res.data[firstKey];
+    return [];
   } catch (err) {
-    console.error('fetchExams error:', err.response?.data || err.message);
+    console.error('fetchExams error:', err.message || err);
     return [];
   }
 }
@@ -208,12 +209,13 @@ function formatLesson(l) {
 }
 
 function formatExam(e) {
-  const discipline = e.discipline || '—';
-  const date = e.examDate || '—';
-  const time = e.examTime || '';
-  const teacher = e.teacher ? `Преподаватель: ${e.teacher}` : 'Преподаватель: —';
-  const room = e.auditory ? `Аудитория: ${e.auditory}` : 'Аудитория: —';
-  return `📌 ${discipline}\n${date}, ${time}\n${teacher}\n${room}`;
+  // поля в примере: name, teacher, secondTeacher, date, start_time, timestamp, room
+  const subj = e.name || '—';
+  const date = e.date || (e.timestamp ? new Date(e.timestamp * 1000).toLocaleDateString() : '—');
+  const time = e.start_time || (e.timestamp ? new Date(e.timestamp * 1000).toLocaleTimeString().slice(0,5) : '—');
+  const teachers = [e.teacher, e.secondTeacher].filter(Boolean).join(', ') || '—';
+  const room = e.room || '—';
+  return `📌 ${subj}\n${date}, ${time}\nПреподаватели: ${teachers}\nАудитория: ${room}`;
 }
 
 /* --------------------- ОТПРАВКА/ЛОГИКА --------------------- */
@@ -379,15 +381,12 @@ async function sendExams(chatId) {
   }
 
   const exams = await fetchExams(state.group);
-
-  if (!exams.length) {
-    await bot.sendMessage(chatId, 'Расписание экзаменов не найдено.');
+  if (!exams || exams.length === 0) {
+    await bot.sendMessage(chatId, 'Расписание экзаменов не найдено для этой группы.');
     return sendMenu(chatId);
   }
 
-  const text = '📝 Расписание экзаменов:\n\n' +
-    exams.map(formatExam).join('\n\n');
-
+  const text = '📝 Расписание экзаменов:\n\n' + exams.map(formatExam).join('\n\n');
   await bot.sendMessage(chatId, text);
   await sendMenu(chatId);
 }
