@@ -215,7 +215,7 @@ function formatExam(e) {
   const time = e.start_time || (e.timestamp ? new Date(e.timestamp * 1000).toLocaleTimeString().slice(0,5) : '—');
   const teachers = [e.teacher, e.secondTeacher].filter(Boolean).join(', ') || '—';
   const room = e.room || '—';
-  return `📌 ${subj}\n${date}, ${time}\nПреподаватели: ${teachers}\nАудитория: ${room}`;
+  return `— ${subj}\n${date}, ${time}\nПреподаватели: ${teachers}\nАудитория: ${room}`;
 }
 
 /* --------------------- ОТПРАВКА/ЛОГИКА --------------------- */
@@ -386,7 +386,7 @@ async function sendExams(chatId) {
     return sendMenu(chatId);
   }
 
-  const text = '📝 Расписание экзаменов:\n\n' + exams.map(formatExam).join('\n\n');
+  const text = '📌 Расписание экзаменов:\n\n' + exams.map(formatExam).join('\n\n');
   await bot.sendMessage(chatId, text);
   await sendMenu(chatId);
 }
