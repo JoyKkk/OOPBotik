@@ -52,7 +52,7 @@ const daysKeyboard = {
 
 const DAYS = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
 
-/* --------------------- ВСПОМОГАТЕЛЬНЫЕ --------------------- */
+// ========= Вспомогательные =========
 
 function isLikelyGroupFormat(s) {
   return /^\d{4}$/.test(s);
@@ -73,7 +73,7 @@ function timeToMin(t) {
 // Получение московского времени (UTC+3)
 function getMoscowTime() {
   const now = new Date();
-  // Москва UTC+3 (3 часа * 60 минут * 60 секунд * 1000 миллисекунд)
+  // UTC+3 (3 часа * 60 минут * 60 секунд * 1000 миллисекунд)
   return new Date(now.getTime() + 3 * 60 * 60 * 1000);
 }
 
@@ -107,7 +107,7 @@ function formatFutureDate(date) {
   return `${day}.${month}`;
 }
 
-// вычисление чётности недели: 1 = нечётная, 2 = чётная
+// вычисление чётности недели (1 = нечётная, 2 = чётная)
 function getWeekTypeForDate(date) {
   // если задан SEMESTER_START, считаем от него
   if (process.env.SEMESTER_START) {
@@ -129,10 +129,10 @@ function getWeekTypeForDate(date) {
   return (weekNumber % 2 === 1) ? 1 : 2;
 }
 
-/* --------------------- API ВЗАИМОДЕЙСТВИЕ --------------------- */
+// ========= API-взаимодействие =========
 
 async function fetchSchedule(group) {
-  // Возвращаем объект расписания для группы (или бросаем ошибку)
+  // Возвращаем объект расписания для группы (или выдаём ошибку)
   try {
     const res = await axios.get(`${API_BASE}/schedule`, {
       params: { groupNumber: group },
@@ -141,7 +141,7 @@ async function fetchSchedule(group) {
     if (!res.data || Object.keys(res.data).length === 0) {
       throw new Error('Пустой ответ от API');
     }
-    // если есть ключ с именем группы — используем его
+    // если есть ключ с именем группы, используем его
     if (res.data[group]) return res.data[group];
     // иначе возвращаем первый объект в ответе
     const firstKey = Object.keys(res.data)[0];
@@ -173,7 +173,7 @@ async function fetchExams(group) {
 }
 
 async function verifyGroupExists(group) {
-  // Проверяет существование группы, по сути вызывает fetchSchedule и ловит ошибку
+  // Проверяет существование группы, вызывая fetchSchedule и ловя ошибку
   try {
     await fetchSchedule(group);
     return true;
@@ -182,12 +182,12 @@ async function verifyGroupExists(group) {
   }
 }
 
-/* --------------------- ФИЛЬТРАЦИЯ/ФОРМАТ --------------------- */
+// ========= Фильтрация/формат =========
 
 function filterByWeek(lessons, weekType) {
   if (!Array.isArray(lessons)) return [];
   return lessons.filter(l => {
-    if (!l.week && !l.weeks) return true; // если поле отсутствует — считается на все недели
+    if (!l.week && !l.weeks) return true; // если поле отсутствует, считается на все недели
     // API может содержать разные формы: week: "1", "2", "1/2", "вся"
     const wRaw = (l.week || l.weeks || '').toString().toLowerCase();
     if (!wRaw) return true;
@@ -209,7 +209,6 @@ function formatLesson(l) {
 }
 
 function formatExam(e) {
-  // поля в примере: name, teacher, secondTeacher, date, start_time, timestamp, room
   const subj = e.name || '—';
   const date = e.date || (e.timestamp ? new Date(e.timestamp * 1000).toLocaleDateString() : '—');
   const time = e.start_time || (e.timestamp ? new Date(e.timestamp * 1000).toLocaleTimeString().slice(0,5) : '—');
@@ -218,13 +217,13 @@ function formatExam(e) {
   return `— ${subj}\n${date}, ${time}\nПреподаватели: ${teachers}\nАудитория: ${room}`;
 }
 
-/* --------------------- ОТПРАВКА/ЛОГИКА --------------------- */
+// ========= Отправка/логиака =========
 
 async function sendMenu(chatId) {
   await bot.sendMessage(chatId, 'Выберите команду:', mainKeyboard);
 }
 
-// sendDay: если showMenu=false — меню не присылается (используется для сборки всей недели)
+// sendDay: если showMenu=false, меню не присылается (используется для сборки всей недели)
 async function sendDay(chatId, dayIndex, weekType, showMenu = true) {
   const state = userState[chatId];
   if (!state || !state.group) {
@@ -274,12 +273,10 @@ async function sendWeek(chatId, weekType) {
   }
 
   try {
-    // отправляем все дни (Mon..Sun)
+    // отправляем все дни (Mon-Sun)
     for (let i = 0; i < 6; i++) {
-      // sendDay with showMenu = false to avoid menu after each day
       await sendDay(chatId, i, weekType, false);
     }
-    // one final menu
     await sendMenu(chatId);
   } catch (e) {
     console.error('sendWeek error', e);
@@ -391,7 +388,7 @@ async function sendExams(chatId) {
   await sendMenu(chatId);
 }
 
-/* --------------------- ОБРАБОТЧИКИ --------------------- */
+// ========= Обработчики =========
 
 // /start - просим ввести группу
 bot.onText(/\/start/, (msg) => {
@@ -406,19 +403,19 @@ bot.on('message', async (msg) => {
   const text = msg.text && msg.text.trim();
   if (!text) return;
 
-  // Игнорируем команды /start и пр. (они обработаны отдельно)
+  // Игнорируем команды /start и прочее (они обработаны отдельно)
   if (text.startsWith('/')) {
     return;
   }
 
-  // Если пользователь нажал "Сменить группу" — сбрасываем состояние и просим ввести
+  // Если пользователь нажал "Сменить группу", сбрасываем состояние и просим ввести
   if (text === '🔄 Сменить группу') {
     userState[chatId] = {};
     await bot.sendMessage(chatId, 'Введи новый номер группы:');
     return;
   }
 
-  // Если у пользователя ещё нет сохранённой группы — воспринимаем текcт как номер группы
+  // Если у пользователя ещё нет сохранённой группы, воспринимаем текcт как номер группы
   if (!userState[chatId] || !userState[chatId].group) {
     const candidate = text;
     // проверка формата
@@ -433,22 +430,22 @@ bot.on('message', async (msg) => {
       await bot.sendMessage(chatId, `Группа "${candidate}" не найдена. Проверь номер и введи ещё раз:`);
       return;
     }
-    // всё ок — сохраняем
+    // всё нормально, сохраняем
     userState[chatId] = { group: candidate };
     await bot.sendMessage(chatId, `✅ Группа сохранена: ${candidate}`);
     return sendMenu(chatId);
   }
 
-  // далее — обработка команд/кнопок, когда группа уже указана
+  // обработка команд/кнопок, когда группа уже указана
   try {
-    // выбор дня — показать клавиатуру дней
+    // выбор дня (показать клавиатуру дней)
     if (text === '📆 День недели') {
       return bot.sendMessage(chatId, 'Выбери день:', daysKeyboard);
     }
 
     // выбор всех недель (показываем клавиатуру для чёт/нечёт)
     if (text === '📘 Вся неделя') {
-      // помечаем, что запрос на "всю неделю" (если нужно - можно хранить флаг)
+      // помечаем, что запрос на всю неделю
       userState[chatId].selectedDay = undefined;
       return bot.sendMessage(chatId, 'Выбери тип недели для расписания на всю неделю:', weekKeyboard);
     }
@@ -457,12 +454,10 @@ bot.on('message', async (msg) => {
       return sendExams(chatId);
     }
 
-    // ближайшая пара
     if (text === '📍 Ближайшая пара') {
       return sendNearestLesson(chatId);
     }
 
-    // сегодня / завтра
     if (text === '📅 Сегодня') {
       return sendDay(chatId, jsDayToIndex(new Date().getDay()), getWeekTypeForDate(new Date()));
     }
@@ -471,32 +466,31 @@ bot.on('message', async (msg) => {
       return sendDay(chatId, jsDayToIndex(t.getDay()), getWeekTypeForDate(t));
     }
 
-    // пользователь выбрал конкретный день (reply-кнопка)
+    // выбран конкретный день
     if (DAYS.includes(text)) {
       userState[chatId].selectedDay = DAYS.indexOf(text);
-      return bot.sendMessage(chatId, `Выбран ${text}. Теперь выбери тип недели:`, weekKeyboard);
+      return bot.sendMessage(chatId, `Выбран(а) ${text}. Теперь выбери тип недели:`, weekKeyboard);
     }
 
-    // выбор чётной/нечётной недели (для "вся неделя" или для ранее выбранного дня)
+    // выбор чётной/нечётной недели (для "всей недели" или для ранее выбранного дня)
     if (text === 'Чётная неделя' || text === 'Нечётная неделя') {
       const weekType = text.startsWith('Чёт') ? 2 : 1;
       const state = userState[chatId];
 
       if (typeof state.selectedDay === 'number') {
-        // выбран конкретный день — выводим только его
+        // выбран конкретный день - выводим только его
         return sendDay(chatId, state.selectedDay, weekType, true);
       } else {
-        // не выбран день — выводим всю неделю (Mon..Sun)
+        // не выбран день - выводим всю неделю
         return sendWeek(chatId, weekType);
       }
     }
-
-    // "Назад" кнопка
+    
     if (text === '<< Назад') {
       return sendMenu(chatId);
     }
 
-    // если текст не распознан — показываем подсказку
+    // если текст не распознан, показываем подсказку
     await bot.sendMessage(chatId, 'Неизвестная команда. Выбери действие:', mainKeyboard);
   } catch (e) {
     console.error('message handler error', e);
@@ -507,7 +501,7 @@ bot.on('message', async (msg) => {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.get('/', (req,res) => res.send('Bot is running!'));
+app.get('/', (req,res) => res.send('Ботик работает как свинские часы'));
 app.listen(PORT, () => console.log(`HTTP server listening on port ${PORT}`));
 
 console.log('Успешный запуск бота!!!');
