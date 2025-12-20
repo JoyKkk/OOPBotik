@@ -160,13 +160,13 @@ async function fetchExams(group) {
       timeout: 10000
     });
 
-    if (!res.data || res.data.length === 0) {
+    if (!Array.isArray(res.data) || res.data.length === 0) {
       return [];
     }
 
     return res.data;
   } catch (err) {
-    console.error('fetchExams error', err.message);
+    console.error('fetchExams error:', err.response?.data || err.message);
     return [];
   }
 }
@@ -208,16 +208,12 @@ function formatLesson(l) {
 }
 
 function formatExam(e) {
-  const date = e.date || '—';
-  const time = e.time || '—';
-  const subject = e.subject || '—';
-  const teacher = e.teacher || '—';
-  const room = e.room || '—';
-
-  return `📌 ${subject}
-– ${date}, ${time}
-– ${teacher}
-– ${room}`;
+  const discipline = e.discipline || '—';
+  const date = e.examDate || '—';
+  const time = e.examTime || '';
+  const teacher = e.teacher ? `Преподаватель: ${e.teacher}` : 'Преподаватель: —';
+  const room = e.auditory ? `Аудитория: ${e.auditory}` : 'Аудитория: —';
+  return `📌 ${discipline}\n${date}, ${time}\n${teacher}\n${room}`;
 }
 
 /* --------------------- ОТПРАВКА/ЛОГИКА --------------------- */
