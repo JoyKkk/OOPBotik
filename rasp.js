@@ -178,20 +178,40 @@ class ScheduleService {
     });
   }
 
+  // Исправлено: форматирование урока — теперь показывает всех преподавателей, если их несколько
   static formatLesson(l) {
     const time = `${l.start_time || '??:??'}–${l.end_time || '??:??'}`;
     const type = l.subjectType ? `${l.subjectType}: ` : '';
     const name = l.name || l.subject || '—';
-    const teacher = l.teacher ? `Преподаватель: ${l.teacher}` : 'Преподаватель: —';
+
+    // Собираем всех возможных преподавателей
+    const teachersArr = [];
+    if (l.teacher) teachersArr.push(l.teacher);
+    if (l.secondTeacher) teachersArr.push(l.secondTeacher);
+    // Если API возвращает массив teachers, учитываем разные форматы элементов
+    if (Array.isArray(l.teachers)) {
+      for (const t of l.teachers) {
+        if (!t) continue;
+        if (typeof t === 'string') teachersArr.push(t);
+        else if (typeof t === 'object') {
+          // попытка достать поля с именем
+          if (t.name) teachersArr.push(t.name);
+          else if (t.fullName) teachersArr.push(t.fullName);
+          else if (t.title) teachersArr.push(t.title);
+        }
+      }
+    }
+    const teacherLine = teachersArr.length ? `Преподаватель(и): ${[...new Set(teachersArr)].join(', ')}` : 'Преподаватель: —';
+
     const room = l.room ? `Аудитория: ${l.room}` : 'Аудитория: —';
-    return `${time}  ${type}${name}\n${teacher}\n${room}`;
+    return `${time}  ${type}${name}\n${teacherLine}\n${room}`;
   }
 
   static formatExam(e) {
     const subj = e.name || '—';
     const date = e.date || (e.timestamp ? new Date(e.timestamp * 1000).toLocaleDateString() : '—');
     const time = e.start_time || (e.timestamp ? new Date(e.timestamp * 1000).toLocaleTimeString().slice(0, 5) : '—');
-    const teachers = [e.teacher, e.secondTeacher].filter(Boolean).join(', ') || '—';
+    const teachers = [e.teacher, e.secondTeacher].filter(Boolean).join(', ') || (Array.isArray(e.teachers) ? e.teachers.join(', ') : '—');
     const room = e.room || '—';
     return `— ${subj}\n${date}, ${time}\nПреподаватели: ${teachers}\nАудитория: ${room}`;
   }
@@ -377,7 +397,43 @@ class BotApp {
       return this.sendMenu(chatId);
     }
 
-    const exams = await this.api.fetchExams(state.group);
+    // Получаем экзамены
+    let exams = await this.api.fetchExams(state.group);
+
+    // Сортируем по дате/времени: сначала по timestamp, иначе пытаемся составить из date + start_time
+    exams.sort((a, b) => {
+      const getTs = (e) => {
+        if (!e) return 0;
+        if (e.timestamp && !isNaN(Number(e.timestamp))) return Number(e.timestamp) * 1000;
+        // попробуем распарсить date + start_time
+        if (e.date && e.start_time) {
+          // e.date может быть 'YYYY-MM-DD' или 'DD.MM.YYYY' - пробуем оба варианта
+          let d = Date.parse(e.date);
+          if (isNaN(d) && typeof e.date === 'string' && e.date.includes('.')) {
+            // dd.mm.yyyy -> yyyy-mm-dd
+            const parts = e.date.split('.');
+            if (parts.length === 3) {
+              const dd = parts[0].padStart(2,'0');
+              const mm = parts[1].padStart(2,'0');
+              const yyyy = parts[2];
+              const iso = `${yyyy}-${mm}-${dd}T${e.start_time}`;
+              const parsed = Date.parse(iso);
+              if (!isNaN(parsed)) return parsed;
+            }
+          } else if (!isNaN(d)) {
+            // если дата парсится напрямую, добавим время
+            const iso = new Date(d);
+            const [h,m] = (e.start_time || '00:00').split(':').map(Number);
+            iso.setHours(h||0, m||0, 0, 0);
+            return iso.getTime();
+          }
+        }
+        return 0;
+      };
+
+      return getTs(a) - getTs(b);
+    });
+
     if (!exams || exams.length === 0) {
       await this.bot.sendMessage(chatId, 'Расписание экзаменов не найдено для этой группы.');
       return this.sendMenu(chatId);
