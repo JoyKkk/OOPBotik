@@ -183,9 +183,9 @@ class ScheduleService {
     const type = l.subjectType ? `${l.subjectType}: ` : '';
     const name = l.name || l.subject || '—';
 
-    const teachers = Array.isArray(l.teachers) ? l.teachers.join(', ') : [l.teacher, l.secondTeacher].filter(Boolean).join(', ');
+    const teachers = [l.teacher, l.second_teacher].filter(t => t && t.trim());
 
-    const teacherText = teachers || '—';
+    const teacherText = teachers.length ? teachers.join(', ') : '—';
     const room = l.room ? `Аудитория: ${l.room}` : 'Аудитория: —';
 
     return `${time}  ${type}${name}\nПреподаватели: ${teacherText}\n${room}`;
