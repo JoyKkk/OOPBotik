@@ -183,13 +183,13 @@ class ScheduleService {
     const type = l.subjectType ? `${l.subjectType}: ` : '';
     const name = l.name || l.subject || '—';
 
-    const teachers = [l.teacher, l.secondTeacher].filter(Boolean).join(', ') || '—';
+    const teachers = Array.isArray(l.teachers) ? l.teachers.join(', ') : [l.teacher, l.secondTeacher].filter(Boolean).join(', ');
 
+    const teacherText = teachers || '—';
     const room = l.room ? `Аудитория: ${l.room}` : 'Аудитория: —';
 
-    return `${time}  ${type}${name}\nПреподаватели: ${teachers}\n${room}`;
+    return `${time}  ${type}${name}\nПреподаватели: ${teacherText}\n${room}`;
   }
-
 
   static formatExam(e) {
     const subj = e.name || '—';
