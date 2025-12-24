@@ -178,34 +178,18 @@ class ScheduleService {
     });
   }
 
-  // Исправлено: форматирование урока — теперь показывает всех преподавателей, если их несколько
   static formatLesson(l) {
     const time = `${l.start_time || '??:??'}–${l.end_time || '??:??'}`;
     const type = l.subjectType ? `${l.subjectType}: ` : '';
     const name = l.name || l.subject || '—';
 
-    // Собираем всех возможных преподавателей
-    const teachersArr = [];
-    if (l.teacher) teachersArr.push(l.teacher);
-    if (l.secondTeacher) teachersArr.push(l.secondTeacher);
-    // Если API возвращает массив teachers, учитываем разные форматы элементов
-    if (Array.isArray(l.teachers)) {
-      for (const t of l.teachers) {
-        if (!t) continue;
-        if (typeof t === 'string') teachersArr.push(t);
-        else if (typeof t === 'object') {
-          // попытка достать поля с именем
-          if (t.name) teachersArr.push(t.name);
-          else if (t.fullName) teachersArr.push(t.fullName);
-          else if (t.title) teachersArr.push(t.title);
-        }
-      }
-    }
-    const teacherLine = teachersArr.length ? `Преподаватель(и): ${[...new Set(teachersArr)].join(', ')}` : 'Преподаватель: —';
+    const teachers = [l.teacher, l.secondTeacher].filter(Boolean).join(', ') || '—';
 
     const room = l.room ? `Аудитория: ${l.room}` : 'Аудитория: —';
-    return `${time}  ${type}${name}\n${teacherLine}\n${room}`;
+
+    return `${time}  ${type}${name}\nПреподаватели: ${teachers}\n${room}`;
   }
+
 
   static formatExam(e) {
     const subj = e.name || '—';
