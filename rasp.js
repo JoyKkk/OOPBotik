@@ -11,7 +11,6 @@ if (!token) {
   process.exit(1);
 }
 
-/* ================= SERVICES ================= */
 class UserStateService {
   constructor() {
     this.state = {};
