@@ -367,7 +367,7 @@ class BotApp {
       await this.sendMenu(chatId);
     } catch (error) {
       console.error('Ошибка поиска ближайшей пары:', error);
-      await this.bot.sendMessage(chatId, 'Ошибка при поиске ближайшей пары. Попробуйте позже.');
+      await this.bot.sendMessage(chatId, 'Ошибка при поиске ближайшей пары. Попробуй позже.');
       await this.sendMenu(chatId);
     }
   }
@@ -451,7 +451,7 @@ class BotApp {
 
       if (!state.group) {
         if (!ScheduleService.isLikelyGroupFormat(text)) {
-          await this.bot.sendMessage(chatId, 'Неверный формат номера группы. Номер должен содержать 4 цифры. Введите снова:');
+          await this.bot.sendMessage(chatId, 'Неверный формат номера группы. Номер должен содержать 4 цифры. Введи снова:');
           return;
         }
 
@@ -527,7 +527,7 @@ class BotApp {
         await this.bot.sendMessage(chatId, 'Неизвестная команда. Выбери действие:', KeyboardService.main());
       } catch (e) {
         console.error('message handler error', e);
-        await this.bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте снова.');
+        await this.bot.sendMessage(chatId, 'Произошла ошибка. Попробуй снова.');
         await this.sendMenu(chatId);
       }
     });
