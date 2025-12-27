@@ -228,7 +228,7 @@ class BotApp {
   }
 
   async sendMenu(chatId) {
-    await this.bot.sendMessage(chatId, 'Выберите команду:', KeyboardService.main());
+    await this.bot.sendMessage(chatId, 'Выбери команду:', KeyboardService.main());
   }
 
   async sendDay(chatId, dayIndex, weekType, showMenu = true) {
