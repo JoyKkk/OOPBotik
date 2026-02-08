@@ -383,6 +383,26 @@ class BotApp {
     // Получаем экзамены
     let exams = await this.api.fetchExams(state.group);
 
+    const now = Date.now();
+    exams = exams.filter(e => {
+      if (e.timestamp && !isNaN(Number(e.timestamp))) {
+        return Number(e.timestamp) * 1000 >= now;
+      }
+
+      if (e.date) {
+        let parsed = Date.parse(e.date);
+
+        if (isNaN(parsed) && typeof e.date === 'string' && e.date.includes('.')) {
+          const [dd, mm, yyyy] = e.date.split('.');
+          parsed = Date.parse(`${yyyy}-${mm}-${dd}`);
+        }
+
+        if (!isNaN(parsed)) return parsed >= now;
+      }
+
+      return true; // если даты нет — оставляем
+    });
+
     // Сортируем по дате/времени: сначала по timestamp, иначе пытаемся составить из date + start_time
     exams.sort((a, b) => {
       const getTs = (e) => {
@@ -417,8 +437,11 @@ class BotApp {
       return getTs(a) - getTs(b);
     });
 
-    if (!exams || exams.length === 0) {
-      await this.bot.sendMessage(chatId, 'Расписание экзаменов не найдено для этой группы.');
+    if (!exams.length) {
+      await this.bot.sendMessage(
+        chatId,
+        '📌 Экзамены для текущего семестра пока не опубликованы.'
+      );
       return this.sendMenu(chatId);
     }
 
